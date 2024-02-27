@@ -1,0 +1,159 @@
+---
+title: "dengue_2013_2022"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-02-13"
+---
+
+```{r}
+
+library(readxl)
+library(tidyverse)
+library(dplyr)
+library(fpp3)
+library(tsibble)
+library(feasts)
+library(forecast)
+
+base_dengue <- read_excel("dengue_dataset.xlsx")
+```
+
+
+
+```{r}
+
+### tsibble
+
+base_dengue <- base_dengue  %>%
+  mutate(Month = as.Date(
+    paste(ano, mes, "01", sep = "-"),
+    format = "%Y-%m-%d")) %>% 
+  select(-ano, -mes) %>% 
+  mutate(Month = yearmonth(Month)) %>% 
+  as_tsibble(index= Month) 
+```
+
+
+```{r}
+# dummies
+base_dengue_pos2013 <- base_dengue[181:300,]
+
+base_dengue_pos2013 <- base_dengue_pos2013 %>% mutate(dummies = 0)
+
+
+base_dengue_pos2013 <- base_dengue_pos2013 %>%
+  mutate(dummies = ifelse(casosmais1_por_100k >= 100, 1, dummies))
+```
+
+
+
+
+```{r}
+# model 1
+# 1 lag, log-level-level
+
+reg_log1 = base_dengue_pos2013 %>%
+  as_tsibble() %>%
+  model(arima = ARIMA( log(casosmais1_por_100k) ~ 
+                        tmed + lag(tmed, 1) +
+                        chuva + lag(chuva, 1)  +
+                        dummies,
+                      greedy = FALSE,
+                      stepwise = FALSE
+                      )) %>% 
+  report(reg_log1) 
+
+reg_log1 |> gg_tsresiduals()
+
+# report(reg_log1)
+
+augment(reg_log1) |> features(.innov, ljung_box, lag=8)
+augment(reg_log1) |> features(.innov, ljung_box, lag=16)
+augment(reg_log1) |> features(.innov, ljung_box, lag=24)
+
+```
+
+
+
+
+```{r}
+# model 2
+# 1 lag, log-log-log
+
+reg_log2 = base_dengue_pos2013 %>%
+  as_tsibble() %>%
+  model(arima = ARIMA( log(casosmais1_por_100k) ~ 
+                        log(tmed) + log(lag(tmed, 1)) +
+                        log(chuva) + log(lag(chuva, 1))  +
+                        dummies,
+                      greedy = FALSE,
+                      stepwise = FALSE
+                      )) %>% 
+  report(reg_log2) 
+
+reg_log2 |> gg_tsresiduals()
+
+# report(reg_log2)
+augment(reg_log2) |> features(.innov, ljung_box, lag=8)
+augment(reg_log2) |> features(.innov, ljung_box, lag=16)
+augment(reg_log2) |> features(.innov, ljung_box, lag=24)
+```
+
+
+
+```{r}
+# model 3
+# 2 lags, log-level-level
+
+reg_log3 = base_dengue_pos2013 %>%
+  as_tsibble() %>%
+  model(arima = ARIMA( log(casosmais1_por_100k) ~ 
+                        tmed + lag(tmed, 1) + lag(tmed, 2) +
+                        chuva + lag(chuva, 1) + lag(chuva, 2) +
+                        dummies,
+                      greedy = FALSE,
+                      stepwise = FALSE
+                      )) %>% 
+  report(reg_log3) 
+
+reg_log3 |> gg_tsresiduals()
+
+#report(reg_log3)
+augment(reg_log3) |> features(.innov, ljung_box, lag=8)
+augment(reg_log3) |> features(.innov, ljung_box, lag=16)
+augment(reg_log3) |> features(.innov, ljung_box, lag=24)
+
+```
+
+
+```{r}
+# model 4
+# 2 lags, log-log-log
+
+reg_log4 = base_dengue_pos2013 %>%
+  as_tsibble() %>%
+  model(arima = ARIMA( log(casosmais1_por_100k) ~ 
+                        log(tmed) + log(lag(tmed, 1)) + log(lag(tmed, 2)) +
+                        log(chuva) + log(lag(chuva, 1)) + log(lag(chuva, 2)) +
+                        dummies,
+                      greedy = FALSE,
+                      stepwise = FALSE
+                      )) %>% 
+  report(reg_log4) 
+
+reg_log4 |> gg_tsresiduals()
+
+# report(reg_log4) 
+augment(reg_log4) |> features(.innov, ljung_box, lag=8)
+augment(reg_log4) |> features(.innov, ljung_box, lag=16)
+augment(reg_log4) |> features(.innov, ljung_box, lag=24)
+
+```
+
+
+
+
+
+
+
